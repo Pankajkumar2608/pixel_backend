@@ -50,11 +50,18 @@ const actionStepSchema = z.object({
     "back",
     "home",
     "wait",
+    "call_contact",
+    "send_message",
+    "open_url",
+    "press_enter",
   ]),
   target: z.string().optional(),
   value: z.string().optional(),
   packageName: z.string().optional(),
   milliseconds: z.number().optional(),
+  contactName: z.string().optional(),
+  phoneNumber: z.string().optional(),
+  url: z.string().optional(),
   description: z.string(),
 });
 
@@ -157,19 +164,36 @@ APP PACKAGE NAMES (use these exactly):
 - Zomato:             com.application.zomato
 - Swiggy:             in.swiggy.android
 
-APP-SPECIFIC NAVIGATION HINTS:
+APP-SPECIFIC UI AUTOMATION HINTS (Use these exact step patterns):
 
-SPOTIFY:
-  - Search tab is at bottom nav, icon: magnifying glass
-  - Search field text: "Artists, songs, podcasts"
-  - Play button content-desc: "Play"
-  - Shuffle: look for "Shuffle play" button
+SPOTIFY (Playing a song):
+  1. {"id":"s1","action":"launch_app","packageName":"com.spotify.music","description":""}
+  2. {"id":"s2","action":"wait","milliseconds":2000,"description":""}
+  3. {"id":"s3","action":"tap","target":"Search","description":""} (this activates the search tab)
+  4. {"id":"s4","action":"tap","target":"Search","description":""} (this focuses the search bar)
+  5. {"id":"s5","action":"type","target":"Search","value":"<song>","description":""}
+  6. {"id":"s6","action":"press_enter","target":"Search","description":""}
+  7. {"id":"s7","action":"wait","milliseconds":2500,"description":""}
+  8. {"id":"s8","action":"tap","target":"<song>","description":""}
 
-WHATSAPP:
-  - New chat: FAB button bottom right, content-desc: "New chat"
-  - Search contact: type contact name in search
-  - Message field text: "Message"
-  - Send button content-desc: "Send"
+YOUTUBE (Playing a video):
+  1. {"id":"s1","action":"launch_app","packageName":"com.google.android.youtube","description":""}
+  2. {"id":"s2","action":"wait","milliseconds":2000,"description":""}
+  3. {"id":"s3","action":"tap","target":"Search","description":""}
+  4. {"id":"s4","action":"type","target":"Search YouTube","value":"<video name>","description":""}
+  5. {"id":"s5","action":"press_enter","target":"Search YouTube","description":""}
+  6. {"id":"s6","action":"wait","milliseconds":2500,"description":""}
+  7. {"id":"s7","action":"tap","target":"<video name>","description":""}
+
+WHATSAPP (Sending a message via UI):
+  1. {"id":"s1","action":"launch_app","packageName":"com.whatsapp","description":""}
+  2. {"id":"s2","action":"wait","milliseconds":1500,"description":""}
+  3. {"id":"s3","action":"tap","target":"Search","description":""}
+  4. {"id":"s4","action":"type","target":"Search","value":"<contact>","description":""}
+  5. {"id":"s5","action":"wait","milliseconds":1500,"description":""}
+  6. {"id":"s6","action":"tap","target":"<contact>","description":""}
+  7. {"id":"s7","action":"type","target":"Message","value":"<your message>","description":""}
+  8. {"id":"s8","action":"tap","target":"Send","description":""}
 
 ALARMS / TIMERS:
   - Timer tab: "Timer" at bottom
@@ -182,9 +206,18 @@ GOOGLE MAPS:
   - Start navigation: "Start" button
 
 PHONE CALLS:
-  - Dialpad tab at bottom
-  - Type number or search contacts
-  - Call button: green phone icon
+  - To call a contact by name → use the "call_contact" action with contactName
+  - To call a phone number → use the "call_contact" action with phoneNumber
+  - Do NOT try to navigate the dialer UI manually for calling — always use call_contact
+  - Example: {"id":"step-1","action":"call_contact","contactName":"Rahul Choudhary","description":"Call Rahul Choudhary"}
+  - Example: {"id":"step-1","action":"call_contact","phoneNumber":"+919876543210","description":"Call the number"}
+
+MESSAGING:
+  - To send a quick SMS → use "send_message" with contactName/phoneNumber and value (the message text)
+  - For WhatsApp messages → use launch_app + tap + type flow as usual
+
+WEB:
+  - To open a URL directly → use "open_url" with url field
 `;
 
 function buildQuestionPrompt(personaName: string, tone: string, memories: string[]): string {
@@ -229,6 +262,10 @@ AVAILABLE ACTIONS:
 - back: press Android back button
 - home: press Android home button
 - wait: {milliseconds} — wait for app to load
+- press_enter: {target} — trigger IMEI enter/search action on an input field
+- call_contact: {contactName OR phoneNumber} — directly call a contact or number (PREFERRED for phone calls)
+- send_message: {contactName OR phoneNumber, value} — send an SMS message
+- open_url: {url} — open a URL in the browser
 
 ${APP_HINTS}
 
@@ -241,6 +278,9 @@ RULES:
 6. If the task involves payment → set confirmRequired: true
 7. If the task is impossible given the UI → set impossible: true with reason
 8. Each step needs a unique id like "step-1", "step-2", etc.
+9. For phone calls → ALWAYS use call_contact action, NOT launch_app + tap
+10. For sending SMS → ALWAYS use send_message action
+11. For opening URLs → ALWAYS use open_url action
 
 CURRENT SCREEN:
 App: ${currentApp}
