@@ -1,0 +1,27 @@
+{
+    "name": "pixel-ai-server",
+    "version": "1.0.0",
+    "description": "Pixel AI — Self-hosted Android AI agent backend",
+    "type": "module",
+    "scripts": {
+        "dev": "docker-compose up -d db && NODE_ENV=development bun run src/index.ts",
+        "start": "NODE_ENV=production bun run src/index.ts",
+        "db:reset": "bun run src/db/reset.ts"
+    },
+    "dependencies": {
+        "hono": "^4.7.0",
+        "@hono/node-server": "^1.13.0",
+        "@google/generative-ai": "^0.24.0",
+        "postgres": "^3.4.5",
+        "jose": "^6.0.0",
+        "bcryptjs": "^2.4.3",
+        "zod": "^3.24.0",
+        "nanoid": "^5.1.0",
+        "js-yaml": "^4.1.0"
+    },
+    "devDependencies": {
+        "@types/bcryptjs": "^2.4.6",
+        "@types/js-yaml": "^4.0.9",
+        "bun-types": "^1.1.0"
+    }
+}
