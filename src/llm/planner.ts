@@ -143,15 +143,16 @@ const APP_HINTS = `
 APP PACKAGE NAMES (use these exactly):
 - Spotify:            com.spotify.music
 - WhatsApp:           com.whatsapp
+- WhatsApp Business:  com.whatsapp.w4b
 - Google Maps:        com.google.android.apps.maps
-- Phone/Calls:        com.android.dialer
+- Phone/Calls:        com.android.dialer OR com.google.android.dialer
 - Clock/Timers:       com.google.android.deskclock
 - YouTube:            com.google.android.youtube
 - YouTube Music:      com.google.android.apps.youtube.music
 - Chrome:             com.android.chrome
 - Gmail:              com.google.android.gm
 - Google Messages:    com.google.android.apps.messaging
-- Camera:             com.android.camera
+- Camera:             com.android.camera OR com.google.android.GoogleCamera
 - Settings:           com.android.settings
 - Instagram:          com.instagram.android
 - Twitter/X:          com.twitter.android
@@ -163,6 +164,20 @@ APP PACKAGE NAMES (use these exactly):
 - Ola:                com.olacabs.customer
 - Zomato:             com.application.zomato
 - Swiggy:             in.swiggy.android
+- Calculator:         com.google.android.calculator
+- Gallery/Photos:     com.google.android.apps.photos
+- Files:              com.google.android.apps.nbu.files
+- Google Keep/Notes:  com.google.android.keep
+- Calendar:           com.google.android.calendar
+- Contacts:           com.google.android.contacts
+- Amazon:             in.amazon.mShop.android.shopping
+- Flipkart:           com.flipkart.android
+- Netflix:            com.netflix.mediaclient
+- Hotstar:            in.startv.hotstar
+- Facebook:           com.facebook.katana
+- Snapchat:           com.snapchat.android
+- LinkedIn:           com.linkedin.android
+- Truecaller:         com.truecaller
 
 APP-SPECIFIC UI AUTOMATION HINTS (Use these exact step patterns):
 
@@ -271,16 +286,19 @@ ${APP_HINTS}
 
 RULES:
 1. Always launch_app first if the target app isn't the current app
-2. Wait 1000ms after launching an app before the next step
-3. Use exact text visible in the UI tree for tap targets
+2. Wait at least 2000ms after launching an app before the next step
+3. Use exact text visible in the UI tree for tap targets. If the UI tree is not available, use the known text from APP-SPECIFIC hints above.
 4. For type actions: tap the field first, then type
 5. Keep steps minimal — don't add unnecessary steps
 6. If the task involves payment → set confirmRequired: true
-7. If the task is impossible given the UI → set impossible: true with reason
+7. NEVER set impossible: true for simple tasks like opening apps, making calls, or playing music. Only set impossible if the task truly cannot be done on a phone.
 8. Each step needs a unique id like "step-1", "step-2", etc.
-9. For phone calls → ALWAYS use call_contact action, NOT launch_app + tap
+9. For phone calls → ALWAYS use call_contact action with contactName field, NOT launch_app + tap
 10. For sending SMS → ALWAYS use send_message action
 11. For opening URLs → ALWAYS use open_url action
+12. For "open X app" → use ONLY a single launch_app step. Nothing else. Example: user says "open spotify" → steps: [{"id":"step-1","action":"launch_app","packageName":"com.spotify.music","description":"Open Spotify"}]
+13. For playing music/video → follow the exact step patterns from APP-SPECIFIC hints above
+14. If the user mentions an app name you don't have the exact package for, guess the most common package name (e.g., com.app_name.android)
 
 CURRENT SCREEN:
 App: ${currentApp}
