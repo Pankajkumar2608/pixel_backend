@@ -137,6 +137,178 @@ export function classifyIntent(text: string): "QUESTION" | "TASK" {
   return "QUESTION";
 }
 
+// ─── Local Command Handler ──────────────────────────────────────────
+// Handles simple commands instantly without calling the LLM.
+// This is faster, cheaper, and more reliable for basic tasks.
+
+const APP_NAME_TO_PACKAGE: Record<string, string> = {
+  // Social & Messaging
+  "whatsapp": "com.whatsapp",
+  "whats app": "com.whatsapp",
+  "instagram": "com.instagram.android",
+  "insta": "com.instagram.android",
+  "facebook": "com.facebook.katana",
+  "fb": "com.facebook.katana",
+  "twitter": "com.twitter.android",
+  "x": "com.twitter.android",
+  "telegram": "org.telegram.messenger",
+  "snapchat": "com.snapchat.android",
+  "linkedin": "com.linkedin.android",
+  "threads": "com.instagram.barcelona",
+  "discord": "com.discord",
+  "messenger": "com.facebook.orca",
+  "signal": "org.thoughtcrime.securesms",
+
+  // Media & Entertainment
+  "spotify": "com.spotify.music",
+  "youtube": "com.google.android.youtube",
+  "you tube": "com.google.android.youtube",
+  "youtube music": "com.google.android.apps.youtube.music",
+  "netflix": "com.netflix.mediaclient",
+  "hotstar": "in.startv.hotstar",
+  "disney plus": "in.startv.hotstar",
+  "amazon prime": "com.amazon.avod.thirdpartyclient",
+  "prime video": "com.amazon.avod.thirdpartyclient",
+  "jio cinema": "com.jio.media.ondemand",
+  "jiotv": "com.jio.jioplay.tv",
+
+  // Google Apps
+  "chrome": "com.android.chrome",
+  "gmail": "com.google.android.gm",
+  "google maps": "com.google.android.apps.maps",
+  "maps": "com.google.android.apps.maps",
+  "google pay": "com.google.android.apps.nbu.paisa.user",
+  "gpay": "com.google.android.apps.nbu.paisa.user",
+  "google photos": "com.google.android.apps.photos",
+  "photos": "com.google.android.apps.photos",
+  "gallery": "com.google.android.apps.photos",
+  "google drive": "com.google.android.apps.docs",
+  "drive": "com.google.android.apps.docs",
+  "google keep": "com.google.android.keep",
+  "keep notes": "com.google.android.keep",
+  "notes": "com.google.android.keep",
+  "calendar": "com.google.android.calendar",
+  "google calendar": "com.google.android.calendar",
+  "messages": "com.google.android.apps.messaging",
+  "contacts": "com.google.android.contacts",
+  "files": "com.google.android.apps.nbu.files",
+  "clock": "com.google.android.deskclock",
+  "alarm": "com.google.android.deskclock",
+  "timer": "com.google.android.deskclock",
+  "calculator": "com.google.android.calculator",
+  "google": "com.google.android.googlequicksearchbox",
+
+  // System
+  "camera": "com.android.camera",
+  "settings": "com.android.settings",
+  "phone": "com.android.dialer",
+  "dialer": "com.android.dialer",
+
+  // Shopping & Food
+  "amazon": "in.amazon.mShop.android.shopping",
+  "flipkart": "com.flipkart.android",
+  "myntra": "com.myntra.android",
+  "swiggy": "in.swiggy.android",
+  "zomato": "com.application.zomato",
+
+  // Payments
+  "phonepe": "com.phonepe.app",
+  "phone pe": "com.phonepe.app",
+  "paytm": "net.one97.paytm",
+  "cred": "com.dreamplug.androidapp",
+
+  // Transport
+  "uber": "com.ubercab",
+  "ola": "com.olacabs.customer",
+  "rapido": "com.rapido.passenger",
+
+  // Other
+  "truecaller": "com.truecaller",
+  "reddit": "com.reddit.frontpage",
+};
+
+/**
+ * Tries to handle simple commands locally without calling the LLM.
+ * Returns a TaskPlanResult if handled, null if the LLM should take over.
+ */
+function tryHandleLocally(text: string, queryId: string): TaskPlanResult | null {
+  const lower = text.toLowerCase().trim();
+
+  // ── Pattern 1: "open/launch {app}" ──────────────────────────────
+  const openAppMatch = lower.match(
+    /^(?:open|launch|start|go to|run|can you open|please open|open up)\s+(?:the\s+)?(.+?)(?:\s+app)?$/i
+  );
+  if (openAppMatch) {
+    const appName = openAppMatch[1].trim();
+    const packageName = findPackageName(appName);
+    if (packageName) {
+      return {
+        type: "TASK",
+        queryId,
+        understanding: `Opening ${appName}`,
+        confirmRequired: false,
+        steps: [
+          {
+            id: "step-1",
+            action: "launch_app",
+            packageName,
+            description: `Open ${appName}`,
+          },
+        ],
+        confirmationText: `Opened ${appName}`,
+      };
+    }
+  }
+
+  // ── Pattern 2: "call {person/number}" ───────────────────────────
+  const callMatch = lower.match(
+    /^(?:call|dial|phone|ring|can you call|please call)\s+(.+)$/i
+  );
+  if (callMatch) {
+    const target = callMatch[1].trim();
+    // Check if it looks like a phone number
+    const isNumber = /^[\d\s\+\-\(\)]+$/.test(target);
+    return {
+      type: "TASK",
+      queryId,
+      understanding: `Calling ${target}`,
+      confirmRequired: false,
+      steps: [
+        {
+          id: "step-1",
+          action: "call_contact",
+          description: `Call ${target}`,
+          ...(isNumber
+            ? { phoneNumber: target }
+            : { contactName: target }),
+        } as ActionStep,
+      ],
+      confirmationText: `Calling ${target}`,
+    };
+  }
+
+  // Not a simple command → let LLM handle it
+  return null;
+}
+
+function findPackageName(appName: string): string | null {
+  const lower = appName.toLowerCase().trim();
+
+  // Direct lookup
+  if (APP_NAME_TO_PACKAGE[lower]) {
+    return APP_NAME_TO_PACKAGE[lower];
+  }
+
+  // Fuzzy match: check if any key contains the app name or vice versa
+  for (const [name, pkg] of Object.entries(APP_NAME_TO_PACKAGE)) {
+    if (name.includes(lower) || lower.includes(name)) {
+      return pkg;
+    }
+  }
+
+  return null;
+}
+
 // ─── Prompt Builder ──────────────────────────────────────────────────
 
 const APP_HINTS = `
@@ -400,6 +572,21 @@ export async function planAction(
     sessionId,
     data: { input: text, type: intent.toLowerCase() },
   });
+
+  // 2.5. Try handling simple commands locally (no LLM needed)
+  //      This is instant and covers: "open {app}", "call {person}", etc.
+  if (intent === "TASK") {
+    const localResult = tryHandleLocally(text, queryId);
+    if (localResult) {
+      audit("local_handled", {
+        userId,
+        deviceId,
+        sessionId,
+        data: { input: text, action: localResult.steps?.[0]?.action },
+      });
+      return localResult;
+    }
+  }
 
   // 3. Get persona
   const persona = await getPersona(userId);

@@ -20,6 +20,7 @@ type AuditEventName =
   | "device_connected"
   | "device_disconnected"
   | "query_received"
+  | "local_handled"
   | "task_started"
   | "task_completed"
   | "task_failed"
